@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import axios from "axios";
+import { io, Socket } from "socket.io-client";
 
 export interface Task {
   id: string;
@@ -20,12 +21,23 @@ export interface Project {
   columns: Column[];
 }
 
+interface Cursor {
+  userId: string;
+  x: number;
+  y: number;
+  name: string;
+}
+
 interface KanbanState {
   isLoggedIn: boolean;
   projects: Project[];
   currentProjectId: string | null;
   loading: boolean;
-  login: () => void;
+  socket: Socket | null;
+  cursors: Cursor[];
+  userName: string;
+  hasLoadedProjects: boolean;
+  login: (user?: { name: string }) => void;
   logout: () => void;
   loadProjects: () => Promise<Project[]>;
   addProject: (name: string) => Promise<void>;
@@ -54,6 +66,11 @@ interface KanbanState {
     columnId: string
   ) => Promise<void>;
   checkDeadlines: (projectId: string) => Promise<void>;
+  connectSocket: () => void;
+  disconnectSocket: () => void;
+  joinProject: (projectId: string) => void;
+  leaveProject: (projectId: string) => void;
+  sendCursor: (x: number, y: number) => void;
 }
 
 const api = axios.create({
@@ -73,23 +90,37 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
   projects: [],
   currentProjectId: null,
   loading: false,
-  login: () => set({ isLoggedIn: true }),
+  socket: null,
+  cursors: [],
+  userName: "",
+  hasLoadedProjects: false,
+  login: (user?: { name: string }) => {
+    set({ isLoggedIn: true, userName: user?.name || "" });
+    get().connectSocket();
+  },
   logout: () => {
     localStorage.removeItem("token");
-    set({ isLoggedIn: false, projects: [], currentProjectId: null });
+    get().disconnectSocket();
+    set({
+      isLoggedIn: false,
+      projects: [],
+      currentProjectId: null,
+      userName: "",
+      hasLoadedProjects: false,
+    });
   },
   loadProjects: async (): Promise<Project[]> => {
     try {
       set({ loading: true });
       const response = await api.get("/projects");
-      set({ projects: response.data, loading: false });
+      set({ projects: response.data, loading: false, hasLoadedProjects: true });
       if (response.data.length > 0 && !get().currentProjectId) {
         set({ currentProjectId: response.data[0]._id });
       }
       return response.data;
     } catch (error) {
       console.error("Failed to load projects", error);
-      set({ loading: false });
+      set({ loading: false, hasLoadedProjects: true });
       return [];
     }
   },
@@ -184,4 +215,116 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
   checkDeadlines: async (projectId) => {
     console.log(projectId);
   },
+  connectSocket: () => {
+    const { socket } = get();
+    if (socket && socket.connected) return;
+    const token = localStorage.getItem("token");
+    if (token) {
+      const socket = io("http://localhost:3000", {
+        auth: { token },
+      });
+      socket.on("cursor-update", (data) => {
+        set((state) => ({
+          cursors: state.cursors
+            .filter((c) => c.userId !== data.userId)
+            .concat(data),
+        }));
+      });
+      socket.on("task-added", (project) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p._id === project._id ? project : p
+          ),
+        }));
+      });
+      socket.on("task-updated", (project) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p._id === project._id ? project : p
+          ),
+        }));
+      });
+      socket.on("task-deleted", (project) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p._id === project._id ? project : p
+          ),
+        }));
+      });
+      socket.on("task-moved", (project) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p._id === project._id ? project : p
+          ),
+        }));
+      });
+      socket.on("project-created", (project) => {
+        set((state) => ({
+          projects: [...state.projects, project],
+        }));
+      });
+      socket.on("project-updated", (project) => {
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p._id === project._id ? project : p
+          ),
+        }));
+      });
+      socket.on("project-deleted", (data) => {
+        set((state) => ({
+          projects: state.projects.filter((p) => p._id !== data.id),
+        }));
+      });
+      socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+        if (error.message === 'Authentication error') {
+          get().logout();
+        }
+      });
+      set({ socket });
+    }
+  },
+  disconnectSocket: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.disconnect();
+    }
+    set({ socket: null, cursors: [] });
+  },
+  joinProject: (projectId) => {
+    const { socket } = get();
+    if (socket) {
+      socket.emit("join-project", projectId);
+    }
+  },
+  leaveProject: (projectId) => {
+    const { socket } = get();
+    if (socket) {
+      socket.emit("leave-project", projectId);
+    }
+    set({ cursors: [] });
+  },
+  sendCursor: (() => {
+    let timeout: number | null = null;
+    return (x: number, y: number) => {
+      if (timeout) return;
+      timeout = window.setTimeout(() => {
+        const { socket, userName, currentProjectId } = get();
+        if (socket && currentProjectId) {
+          socket.emit("cursor-move", { projectId: currentProjectId, x, y, name: userName });
+        }
+        timeout = null;
+      }, 50); // throttle to 20fps
+    };
+  })(),
 }));
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      useKanbanStore.getState().logout();
+    }
+    return Promise.reject(error);
+  }
+);

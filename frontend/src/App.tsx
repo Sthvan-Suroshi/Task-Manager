@@ -11,20 +11,23 @@ import { ProjectPage } from "./components/ProjectPage";
 import { Login } from "./components/Login";
 
 function AppContent() {
-  const { isLoggedIn, login, loadProjects } = useKanbanStore();
+  const { isLoggedIn, login, loadProjects, hasLoadedProjects, connectSocket } = useKanbanStore();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (isLoggedIn) {
-      loadProjects().then((projects) => {
-        if (projects.length > 0) {
-          navigate(`/projects/${projects[0]._id}`, { replace: true });
-        } else {
-          navigate('/projects', { replace: true });
-        }
-      });
+      connectSocket();
+      if (!hasLoadedProjects) {
+        loadProjects().then((projects) => {
+          if (projects.length > 0) {
+            navigate(`/projects/${projects[0]._id}`, { replace: true });
+          } else {
+            navigate("/projects", { replace: true });
+          }
+        });
+      }
     }
-  }, [isLoggedIn, loadProjects, navigate]);
+  }, [isLoggedIn, hasLoadedProjects, loadProjects, navigate, connectSocket]);
 
   return (
     <Routes>
@@ -34,35 +37,25 @@ function AppContent() {
           isLoggedIn ? (
             <Navigate to="/projects" replace />
           ) : (
-            <Login onLogin={login} />
+            <Login onLogin={(user) => login(user)} />
           )
         }
       />
       <Route
         path="/projects"
         element={
-          isLoggedIn ? (
-            <ProjectPage />
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          isLoggedIn ? <ProjectPage /> : <Navigate to="/login" replace />
         }
       />
       <Route
         path="/projects/:projectId"
         element={
-          isLoggedIn ? (
-            <ProjectPage />
-          ) : (
-            <Navigate to="/login" replace />
-          )
+          isLoggedIn ? <ProjectPage /> : <Navigate to="/login" replace />
         }
       />
       <Route
         path="/"
-        element={
-          <Navigate to={isLoggedIn ? "/projects" : "/login"} replace />
-        }
+        element={<Navigate to={isLoggedIn ? "/projects" : "/login"} replace />}
       />
     </Routes>
   );

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import type { DragEndEvent } from "@dnd-kit/core";
@@ -8,14 +8,21 @@ import { ScrollArea } from "./ui/scroll-area";
 
 export function KanbanBoard() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { getCurrentProject, setCurrentProject, moveTask, loadProjects } =
+  const { getCurrentProject, setCurrentProject, moveTask, loadProjects, sendCursor, cursors, joinProject, leaveProject } =
     useKanbanStore();
+  const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (projectId) {
       setCurrentProject(projectId);
+      joinProject(projectId);
     }
-  }, [projectId, setCurrentProject]);
+    return () => {
+      if (projectId) {
+        leaveProject(projectId);
+      }
+    };
+  }, [projectId, setCurrentProject, joinProject, leaveProject]);
 
   const project = getCurrentProject();
 
@@ -24,6 +31,15 @@ export function KanbanBoard() {
       loadProjects();
     }
   }, [project, loadProjects]);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (boardRef.current) {
+      const rect = boardRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      sendCursor(x, y);
+    }
+  };
 
   if (!project) return <div>Loading...</div>;
 
@@ -53,13 +69,33 @@ export function KanbanBoard() {
   return (
     <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <ScrollArea className="w-full">
-        <div className="flex gap-4 p-4 min-w-max">
+        <div
+          ref={boardRef}
+          className="flex gap-4 p-4 min-w-max relative"
+          onMouseMove={handleMouseMove}
+        >
           {project.columns.map((column) => (
             <KanbanColumn
               key={column.id}
               column={column}
               projectId={project._id}
             />
+          ))}
+          {cursors.map((cursor) => (
+            <div
+              key={cursor.userId}
+              className="absolute pointer-events-none"
+              style={{
+                left: cursor.x,
+                top: cursor.y,
+                transform: 'translate(-50%, -50%)'
+              }}
+            >
+              <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
+                {cursor.name}
+              </div>
+              <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-blue-500 mx-auto"></div>
+            </div>
           ))}
         </div>
       </ScrollArea>

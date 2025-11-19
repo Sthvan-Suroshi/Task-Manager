@@ -5,24 +5,25 @@ import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 interface LoginProps {
-  onLogin: () => void;
+  onLogin: (user: { name: string }) => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
   const [error, setError] = useState("");
 
   const handleLogin = async () => {
     try {
       const response = await axios.post(
         "http://localhost:3000/api/auth/login",
-        { email, password }
+        { email, password, name }
       );
 
       console.log(response);
       localStorage.setItem("token", response.data.token);
-      onLogin();
+      onLogin({ name: response.data.user.name });
     } catch (error) {
       console.error("Login failed:", error);
       setError("Invalid credentials");
@@ -36,6 +37,12 @@ export function Login({ onLogin }: LoginProps) {
           <CardTitle>Login</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Input
+            type="text"
+            placeholder="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
           <Input
             type="email"
             placeholder="Email"

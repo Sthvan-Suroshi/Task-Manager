@@ -4,13 +4,16 @@ import User from "../models/User.js";
 
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name } = req.body;
 
     // For demo, create user if not exists
     let user = await User.findOne({ email });
     if (!user) {
       const hashedPassword = await bcrypt.hash(password, 10);
-      user = new User({ email, password: hashedPassword });
+      user = new User({ email, password: hashedPassword, name });
+      await user.save();
+    } else if (name && !user.name) {
+      user.name = name;
       await user.save();
     }
 
@@ -25,7 +28,7 @@ export const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({ token, user: { id: user._id, email: user.email } });
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
