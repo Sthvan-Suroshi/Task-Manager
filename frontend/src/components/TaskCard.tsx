@@ -4,9 +4,16 @@ import { useKanbanStore } from "../stores/kanbanStore";
 import type { Task } from "../stores/kanbanStore";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
+import { Label } from "./ui/label";
 import { X, Edit } from "lucide-react";
 
 interface TaskCardProps {
@@ -23,8 +30,33 @@ export function TaskCard({ task, columnId, projectId }: TaskCardProps) {
     });
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editTitle, setEditTitle] = useState(task.title);
-  const [editDescription, setEditDescription] = useState(task.description || '');
-  const [editDeadline, setEditDeadline] = useState(task.deadline || '');
+  const [editDescription, setEditDescription] = useState(
+    task.description || ""
+  );
+  const [editDeadline, setEditDeadline] = useState(task.deadline || "");
+
+  const formatDateForInput = (dateStr: string | undefined) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "";
+    return date.toISOString().split("T")[0];
+  };
+
+  const formatDateForDisplay = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return dateStr;
+    return date.toLocaleDateString();
+  };
+
+  const handleEditOpenChange = (open: boolean) => {
+    setIsEditOpen(open);
+    if (open) {
+      setEditTitle(task.title);
+      setEditDescription(task.description || "");
+      setEditDeadline(formatDateForInput(task.deadline));
+    }
+  };
 
   const style = transform
     ? {
@@ -32,13 +64,13 @@ export function TaskCard({ task, columnId, projectId }: TaskCardProps) {
       }
     : undefined;
 
-  const handleDelete = (e: React.MouseEvent) => {
+  const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteTask(projectId, task.id, columnId);
+    await deleteTask(projectId, task.id, columnId);
   };
 
-  const handleEdit = () => {
-    updateTask(projectId, task.id, {
+  const handleEdit = async () => {
+    await updateTask(projectId, task.id, {
       title: editTitle.trim(),
       description: editDescription.trim(),
       deadline: editDeadline || undefined,
@@ -59,7 +91,7 @@ export function TaskCard({ task, columnId, projectId }: TaskCardProps) {
       <div className="flex flex-row items-start justify-between">
         <h3 className="text-sm font-medium">{task.title}</h3>
         <div className="flex space-x-1">
-          <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+          <Dialog open={isEditOpen} onOpenChange={handleEditOpenChange}>
             <DialogTrigger asChild>
               <Button
                 variant="ghost"
@@ -70,7 +102,7 @@ export function TaskCard({ task, columnId, projectId }: TaskCardProps) {
                 <Edit className="h-3 w-3" />
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent onPointerDown={(e) => e.stopPropagation()}>
               <DialogHeader>
                 <DialogTitle>Edit Task</DialogTitle>
               </DialogHeader>
@@ -85,7 +117,9 @@ export function TaskCard({ task, columnId, projectId }: TaskCardProps) {
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
                 />
+                <Label htmlFor="deadline">Deadline</Label>
                 <Input
+                  id="deadline"
                   type="date"
                   value={editDeadline}
                   onChange={(e) => setEditDeadline(e.target.value)}
@@ -111,7 +145,9 @@ export function TaskCard({ task, columnId, projectId }: TaskCardProps) {
         <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
       )}
       {task.deadline && (
-        <p className="text-xs text-red-500 mt-1">Due: {task.deadline}</p>
+        <p className="text-xs text-red-500 mt-1">
+          Due: {formatDateForDisplay(task.deadline)}
+        </p>
       )}
     </Card>
   );

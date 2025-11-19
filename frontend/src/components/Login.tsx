@@ -1,22 +1,31 @@
-import { useState } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { useState } from "react";
+import axios from "axios";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 interface LoginProps {
   onLogin: () => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleLogin = () => {
-    if (email === 'test@gmail.com' && password === 'test123') {
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post(
+        "http://localhost:3000/api/auth/login",
+        { email, password }
+      );
+
+      console.log(response);
+      localStorage.setItem("token", response.data.token);
       onLogin();
-    } else {
-      setError('Invalid credentials');
+    } catch (error) {
+      console.error("Login failed:", error);
+      setError("Invalid credentials");
     }
   };
 

@@ -1,17 +1,30 @@
+import { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
+  useNavigate,
 } from "react-router-dom";
-import { SidebarProvider, SidebarInset } from "./components/ui/sidebar";
 import { useKanbanStore } from "./stores/kanbanStore";
-import { ProjectSidebar } from "./components/ProjectSidebar";
-import { KanbanBoard } from "./components/KanbanBoard";
+import { ProjectPage } from "./components/ProjectPage";
 import { Login } from "./components/Login";
 
 function AppContent() {
-  const { isLoggedIn, login } = useKanbanStore();
+  const { isLoggedIn, login, loadProjects } = useKanbanStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadProjects().then((projects) => {
+        if (projects.length > 0) {
+          navigate(`/projects/${projects[0]._id}`, { replace: true });
+        } else {
+          navigate('/projects', { replace: true });
+        }
+      });
+    }
+  }, [isLoggedIn, loadProjects, navigate]);
 
   return (
     <Routes>
@@ -19,9 +32,19 @@ function AppContent() {
         path="/login"
         element={
           isLoggedIn ? (
-            <Navigate to="/projects/default" replace />
+            <Navigate to="/projects" replace />
           ) : (
             <Login onLogin={login} />
+          )
+        }
+      />
+      <Route
+        path="/projects"
+        element={
+          isLoggedIn ? (
+            <ProjectPage />
+          ) : (
+            <Navigate to="/login" replace />
           )
         }
       />
@@ -29,14 +52,7 @@ function AppContent() {
         path="/projects/:projectId"
         element={
           isLoggedIn ? (
-            <SidebarProvider>
-              <ProjectSidebar />
-              <SidebarInset>
-                <div className="p-4">
-                  <KanbanBoard />
-                </div>
-              </SidebarInset>
-            </SidebarProvider>
+            <ProjectPage />
           ) : (
             <Navigate to="/login" replace />
           )
@@ -45,7 +61,7 @@ function AppContent() {
       <Route
         path="/"
         element={
-          <Navigate to={isLoggedIn ? "/projects/default" : "/login"} replace />
+          <Navigate to={isLoggedIn ? "/projects" : "/login"} replace />
         }
       />
     </Routes>

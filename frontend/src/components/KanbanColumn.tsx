@@ -31,9 +31,9 @@ export function KanbanColumn({ column, projectId }: KanbanColumnProps) {
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (title.trim()) {
-      addTask(projectId, column.id, {
+      await addTask(projectId, column.id, {
         title: title.trim(),
         description: description.trim(),
         deadline: deadline || undefined,

@@ -8,7 +8,7 @@ import { ScrollArea } from "./ui/scroll-area";
 
 export function KanbanBoard() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { getCurrentProject, setCurrentProject, moveTask, checkDeadlines } =
+  const { getCurrentProject, setCurrentProject, moveTask, loadProjects } =
     useKanbanStore();
 
   useEffect(() => {
@@ -20,11 +20,10 @@ export function KanbanBoard() {
   const project = getCurrentProject();
 
   useEffect(() => {
-    if (project) {
-      checkDeadlines(project.id);
+    if (!project) {
+      loadProjects();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkDeadlines, project?.id]);
+  }, [project, loadProjects]);
 
   if (!project) return <div>Loading...</div>;
 
@@ -47,7 +46,7 @@ export function KanbanBoard() {
     const toColumnId = overId;
 
     if (fromColumnId && toColumnId && fromColumnId !== toColumnId) {
-      moveTask(project.id, activeId, fromColumnId, toColumnId);
+      moveTask(project._id, activeId, fromColumnId, toColumnId);
     }
   };
 
@@ -59,7 +58,7 @@ export function KanbanBoard() {
             <KanbanColumn
               key={column.id}
               column={column}
-              projectId={project.id}
+              projectId={project._id}
             />
           ))}
         </div>

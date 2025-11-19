@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import axios from "axios";
 
 export interface Task {
   id: string;
@@ -15,7 +15,7 @@ export interface Column {
 }
 
 export interface Project {
-  id: string;
+  _id: string;
   name: string;
   columns: Column[];
 }
@@ -24,233 +24,164 @@ interface KanbanState {
   isLoggedIn: boolean;
   projects: Project[];
   currentProjectId: string | null;
+  loading: boolean;
   login: () => void;
   logout: () => void;
-  addProject: (name: string) => string;
-  renameProject: (id: string, name: string) => void;
+  loadProjects: () => Promise<Project[]>;
+  addProject: (name: string) => Promise<void>;
+  renameProject: (id: string, name: string) => Promise<void>;
   setCurrentProject: (id: string) => void;
   getCurrentProject: () => Project | undefined;
   addTask: (
     projectId: string,
     columnId: string,
     task: Omit<Task, "id">
-  ) => void;
+  ) => Promise<void>;
   moveTask: (
     projectId: string,
     taskId: string,
     fromColumnId: string,
     toColumnId: string
-  ) => void;
+  ) => Promise<void>;
   updateTask: (
     projectId: string,
     taskId: string,
     updates: Partial<Task>
-  ) => void;
-  deleteTask: (projectId: string, taskId: string, columnId: string) => void;
-  checkDeadlines: (projectId: string) => void;
+  ) => Promise<void>;
+  deleteTask: (
+    projectId: string,
+    taskId: string,
+    columnId: string
+  ) => Promise<void>;
+  checkDeadlines: (projectId: string) => Promise<void>;
 }
 
-const initialColumns: Column[] = [
-  { id: "backlog", title: "Backlog", tasks: [] },
-  { id: "todo", title: "To Do", tasks: [] },
-  { id: "in-progress", title: "In Progress", tasks: [] },
-  { id: "done", title: "Done", tasks: [] },
-];
+const api = axios.create({
+  baseURL: "http://localhost:3000/api",
+});
 
-const initialProjects: Project[] = [
-  { id: "default", name: "Default Project", columns: initialColumns },
-];
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
-export const useKanbanStore = create<KanbanState>()(
-  persist(
-    (set, get) => ({
-      isLoggedIn: false,
-      projects: initialProjects,
-      currentProjectId: "default",
-      login: () => set({ isLoggedIn: true }),
-      logout: () => set({ isLoggedIn: false }),
-      addProject: (name) => {
-        const id = Date.now().toString();
-        set((state) => ({
-          projects: [
-            ...state.projects,
-            {
-              id,
-              name,
-              columns: initialColumns.map((col) => ({ ...col, tasks: [] })),
-            },
-          ],
-        }));
-        return id;
-      },
-      renameProject: (id, name) =>
-        set((state) => ({
-          projects: state.projects.map((proj) =>
-            proj.id === id ? { ...proj, name } : proj
-          ),
-        })),
-      setCurrentProject: (id) => set({ currentProjectId: id }),
-      getCurrentProject: () => {
-        const state = get();
-        return state.projects.find((p) => p.id === state.currentProjectId);
-      },
-      addTask: (projectId, columnId, task) =>
-        set((state) => {
-          const newState = {
-            ...state,
-            projects: state.projects.map((proj) =>
-              proj.id === projectId
-                ? {
-                    ...proj,
-                    columns: proj.columns.map((col) =>
-                      col.id === columnId
-                        ? {
-                            ...col,
-                            tasks: [
-                              ...col.tasks,
-                              { ...task, id: Date.now().toString() },
-                            ],
-                          }
-                        : col
-                    ),
-                  }
-                : proj
-            ),
-          };
-          // After adding, check deadlines for this project
-          const now = new Date().toISOString().split("T")[0];
-          newState.projects = newState.projects.map((proj) => {
-            if (proj.id !== projectId) return proj;
-            let backlogTasks: Task[] = [];
-            proj.columns.forEach((col) => {
-              if (col.id === "backlog") {
-                backlogTasks = [...col.tasks];
-              }
-            });
-            const updatedColumns = proj.columns.map((col) => {
-              if (col.id === "backlog") return col;
-              const overdueTasks = col.tasks.filter(
-                (task) => task.deadline && task.deadline < now
-              );
-              const remainingTasks = col.tasks.filter(
-                (task) => !task.deadline || task.deadline >= now
-              );
-              backlogTasks = [...backlogTasks, ...overdueTasks];
-              return { ...col, tasks: remainingTasks };
-            });
-            return {
-              ...proj,
-              columns: updatedColumns.map((col) =>
-                col.id === "backlog" ? { ...col, tasks: backlogTasks } : col
-              ),
-            };
-          });
-          return newState;
-        }),
-      moveTask: (projectId, taskId, fromColumnId, toColumnId) =>
-        set((state) => ({
-          projects: state.projects.map((proj) =>
-            proj.id === projectId
-              ? {
-                  ...proj,
-                  columns: (() => {
-                    const fromColumn = proj.columns.find(
-                      (col) => col.id === fromColumnId
-                    );
-                    const toColumn = proj.columns.find(
-                      (col) => col.id === toColumnId
-                    );
-                    if (!fromColumn || !toColumn) return proj.columns;
-
-                    const taskIndex = fromColumn.tasks.findIndex(
-                      (task) => task.id === taskId
-                    );
-                    if (taskIndex === -1) return proj.columns;
-
-                    const [task] = fromColumn.tasks.splice(taskIndex, 1);
-                    toColumn.tasks.push(task);
-
-                    return proj.columns.map((col) =>
-                      col.id === fromColumnId
-                        ? { ...col, tasks: fromColumn.tasks }
-                        : col.id === toColumnId
-                        ? { ...col, tasks: toColumn.tasks }
-                        : col
-                    );
-                  })(),
-                }
-              : proj
-          ),
-        })),
-      updateTask: (projectId, taskId, updates) =>
-        set((state) => ({
-          projects: state.projects.map((proj) =>
-            proj.id === projectId
-              ? {
-                  ...proj,
-                  columns: proj.columns.map((col) => ({
-                    ...col,
-                    tasks: col.tasks.map((task) =>
-                      task.id === taskId ? { ...task, ...updates } : task
-                    ),
-                  })),
-                }
-              : proj
-          ),
-        })),
-      deleteTask: (projectId, taskId, columnId) =>
-        set((state) => ({
-          projects: state.projects.map((proj) =>
-            proj.id === projectId
-              ? {
-                  ...proj,
-                  columns: proj.columns.map((col) =>
-                    col.id === columnId
-                      ? {
-                          ...col,
-                          tasks: col.tasks.filter((task) => task.id !== taskId),
-                        }
-                      : col
-                  ),
-                }
-              : proj
-          ),
-        })),
-      checkDeadlines: (projectId) =>
-        set((state) => {
-          const now = new Date().toISOString().split("T")[0];
-          return {
-            projects: state.projects.map((proj) => {
-              if (proj.id !== projectId) return proj;
-              let backlogTasks: Task[] = [];
-              proj.columns.forEach((col) => {
-                if (col.id === "backlog") {
-                  backlogTasks = [...col.tasks];
-                }
-              });
-              const updatedColumns = proj.columns.map((col) => {
-                if (col.id === "backlog") return col;
-                const overdueTasks = col.tasks.filter(
-                  (task) => task.deadline && task.deadline < now
-                );
-                const remainingTasks = col.tasks.filter(
-                  (task) => !task.deadline || task.deadline >= now
-                );
-                backlogTasks = [...backlogTasks, ...overdueTasks];
-                return { ...col, tasks: remainingTasks };
-              });
-              return {
-                ...proj,
-                columns: updatedColumns.map((col) =>
-                  col.id === "backlog" ? { ...col, tasks: backlogTasks } : col
-                ),
-              };
-            }),
-          };
-        }),
-    }),
-    {
-      name: "kanban-storage",
+export const useKanbanStore = create<KanbanState>()((set, get) => ({
+  isLoggedIn: !!localStorage.getItem("token"),
+  projects: [],
+  currentProjectId: null,
+  loading: false,
+  login: () => set({ isLoggedIn: true }),
+  logout: () => {
+    localStorage.removeItem("token");
+    set({ isLoggedIn: false, projects: [], currentProjectId: null });
+  },
+  loadProjects: async (): Promise<Project[]> => {
+    try {
+      set({ loading: true });
+      const response = await api.get("/projects");
+      set({ projects: response.data, loading: false });
+      if (response.data.length > 0 && !get().currentProjectId) {
+        set({ currentProjectId: response.data[0]._id });
+      }
+      return response.data;
+    } catch (error) {
+      console.error("Failed to load projects", error);
+      set({ loading: false });
+      return [];
     }
-  )
-);
+  },
+  addProject: async (name) => {
+    try {
+      const response = await api.post("/projects", { name });
+      set((state) => ({
+        projects: [...state.projects, response.data],
+        currentProjectId: response.data._id,
+      }));
+    } catch (error) {
+      console.error("Failed to add project", error);
+    }
+  },
+  renameProject: async (id, name) => {
+    try {
+      await api.put(`/projects/${id}`, { name });
+      set((state) => ({
+        projects: state.projects.map((proj) =>
+          proj._id === id ? { ...proj, name } : proj
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to rename project", error);
+    }
+  },
+  setCurrentProject: (id) => set({ currentProjectId: id }),
+  getCurrentProject: () => {
+    const state = get();
+    return state.projects.find((p) => p._id === state.currentProjectId);
+  },
+  addTask: async (projectId, columnId, task) => {
+    try {
+      const response = await api.post(`/projects/${projectId}/tasks`, {
+        columnId,
+        task,
+      });
+      set((state) => ({
+        projects: state.projects.map((proj) =>
+          proj._id === projectId ? response.data : proj
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to add task", error);
+    }
+  },
+  moveTask: async (projectId, taskId, fromColumnId, toColumnId) => {
+    try {
+      const response = await api.post(`/projects/${projectId}/move-task`, {
+        taskId,
+        fromColumnId,
+        toColumnId,
+      });
+      set((state) => ({
+        projects: state.projects.map((proj) =>
+          proj._id === projectId ? response.data : proj
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to move task", error);
+    }
+  },
+  updateTask: async (projectId, taskId, updates) => {
+    try {
+      const response = await api.put(
+        `/projects/${projectId}/tasks/${taskId}`,
+        updates
+      );
+      set((state) => ({
+        projects: state.projects.map((proj) =>
+          proj._id === projectId ? response.data : proj
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to update task", error);
+    }
+  },
+  deleteTask: async (projectId, taskId) => {
+    try {
+      const response = await api.delete(
+        `/projects/${projectId}/tasks/${taskId}`
+      );
+      set((state) => ({
+        projects: state.projects.map((proj) =>
+          proj._id === projectId ? response.data : proj
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to delete task", error);
+    }
+  },
+  checkDeadlines: async (projectId) => {
+    console.log(projectId);
+  },
+}));

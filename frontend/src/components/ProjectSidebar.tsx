@@ -37,17 +37,16 @@ export function ProjectSidebar() {
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
-  const handleAddProject = () => {
+  const handleAddProject = async () => {
     if (newProjectName.trim()) {
-      const id = addProject(newProjectName.trim());
-      setCurrentProject(id);
+      await addProject(newProjectName.trim());
       setNewProjectName("");
       setIsOpen(false);
     }
   };
 
   const startEditing = (project: Project) => {
-    setEditingProjectId(project.id);
+    setEditingProjectId(project._id);
     setEditingName(project.name);
   };
 
@@ -64,9 +63,20 @@ export function ProjectSidebar() {
     setEditingName("");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:3000/api/auth/logout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+    } catch (error) {
+      console.error("Logout failed:", error);
+    }
+    localStorage.removeItem("token");
     logout();
-    navigate('/login');
+    navigate("/login");
   };
 
   return (
@@ -77,11 +87,11 @@ export function ProjectSidebar() {
       <SidebarContent>
         <SidebarMenu>
           {projects.map((project) => (
-            <SidebarMenuItem key={project.id}>
+            <SidebarMenuItem key={project._id}>
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center flex-1">
                   <Folder className="h-4 w-4 mr-2" />
-                  {editingProjectId === project.id ? (
+                  {editingProjectId === project._id ? (
                     <Input
                       value={editingName}
                       onChange={(e) => setEditingName(e.target.value)}
@@ -96,12 +106,12 @@ export function ProjectSidebar() {
                   ) : (
                     <SidebarMenuButton
                       asChild
-                      isActive={projectId === project.id}
+                      isActive={projectId === project._id}
                       className="flex-1 justify-start"
                     >
                       <Link
-                        to={`/projects/${project.id}`}
-                        onClick={() => setCurrentProject(project.id)}
+                        to={`/projects/${project._id}`}
+                        onClick={() => setCurrentProject(project._id)}
                       >
                         {project.name}
                       </Link>
