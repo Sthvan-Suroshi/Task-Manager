@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useKanbanStore, type Project } from "../stores/kanbanStore";
 import {
   Sidebar,
@@ -28,9 +28,10 @@ import {
 import { Plus, Folder, Edit, MoreVertical } from "lucide-react";
 
 export function ProjectSidebar() {
-  const { projects, addProject, renameProject, setCurrentProject } =
+  const { projects, addProject, renameProject, setCurrentProject, logout } =
     useKanbanStore();
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
@@ -61,6 +62,11 @@ export function ProjectSidebar() {
   const cancelEditing = () => {
     setEditingProjectId(null);
     setEditingName("");
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
   };
 
   return (
@@ -120,7 +126,7 @@ export function ProjectSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="space-y-2">
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full">
@@ -144,6 +150,9 @@ export function ProjectSidebar() {
             </div>
           </DialogContent>
         </Dialog>
+        <Button variant="outline" onClick={handleLogout} className="w-full">
+          Logout
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

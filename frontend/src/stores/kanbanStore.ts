@@ -5,7 +5,7 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  deadline?: string; // ISO date string
+  deadline?: string;
 }
 
 export interface Column {
@@ -21,15 +21,31 @@ export interface Project {
 }
 
 interface KanbanState {
+  isLoggedIn: boolean;
   projects: Project[];
   currentProjectId: string | null;
+  login: () => void;
+  logout: () => void;
   addProject: (name: string) => string;
   renameProject: (id: string, name: string) => void;
   setCurrentProject: (id: string) => void;
   getCurrentProject: () => Project | undefined;
-  addTask: (projectId: string, columnId: string, task: Omit<Task, "id">) => void;
-  moveTask: (projectId: string, taskId: string, fromColumnId: string, toColumnId: string) => void;
-  updateTask: (projectId: string, taskId: string, updates: Partial<Task>) => void;
+  addTask: (
+    projectId: string,
+    columnId: string,
+    task: Omit<Task, "id">
+  ) => void;
+  moveTask: (
+    projectId: string,
+    taskId: string,
+    fromColumnId: string,
+    toColumnId: string
+  ) => void;
+  updateTask: (
+    projectId: string,
+    taskId: string,
+    updates: Partial<Task>
+  ) => void;
   deleteTask: (projectId: string, taskId: string, columnId: string) => void;
   checkDeadlines: (projectId: string) => void;
 }
@@ -48,12 +64,22 @@ const initialProjects: Project[] = [
 export const useKanbanStore = create<KanbanState>()(
   persist(
     (set, get) => ({
+      isLoggedIn: false,
       projects: initialProjects,
       currentProjectId: "default",
+      login: () => set({ isLoggedIn: true }),
+      logout: () => set({ isLoggedIn: false }),
       addProject: (name) => {
         const id = Date.now().toString();
         set((state) => ({
-          projects: [...state.projects, { id, name, columns: initialColumns.map(col => ({ ...col, tasks: [] })) }],
+          projects: [
+            ...state.projects,
+            {
+              id,
+              name,
+              columns: initialColumns.map((col) => ({ ...col, tasks: [] })),
+            },
+          ],
         }));
         return id;
       },
@@ -66,7 +92,7 @@ export const useKanbanStore = create<KanbanState>()(
       setCurrentProject: (id) => set({ currentProjectId: id }),
       getCurrentProject: () => {
         const state = get();
-        return state.projects.find(p => p.id === state.currentProjectId);
+        return state.projects.find((p) => p.id === state.currentProjectId);
       },
       addTask: (projectId, columnId, task) =>
         set((state) => {
@@ -80,7 +106,10 @@ export const useKanbanStore = create<KanbanState>()(
                       col.id === columnId
                         ? {
                             ...col,
-                            tasks: [...col.tasks, { ...task, id: Date.now().toString() }],
+                            tasks: [
+                              ...col.tasks,
+                              { ...task, id: Date.now().toString() },
+                            ],
                           }
                         : col
                     ),
@@ -89,17 +118,17 @@ export const useKanbanStore = create<KanbanState>()(
             ),
           };
           // After adding, check deadlines for this project
-          const now = new Date().toISOString().split('T')[0];
+          const now = new Date().toISOString().split("T")[0];
           newState.projects = newState.projects.map((proj) => {
             if (proj.id !== projectId) return proj;
             let backlogTasks: Task[] = [];
             proj.columns.forEach((col) => {
-              if (col.id === 'backlog') {
+              if (col.id === "backlog") {
                 backlogTasks = [...col.tasks];
               }
             });
             const updatedColumns = proj.columns.map((col) => {
-              if (col.id === 'backlog') return col;
+              if (col.id === "backlog") return col;
               const overdueTasks = col.tasks.filter(
                 (task) => task.deadline && task.deadline < now
               );
@@ -112,7 +141,7 @@ export const useKanbanStore = create<KanbanState>()(
             return {
               ...proj,
               columns: updatedColumns.map((col) =>
-                col.id === 'backlog' ? { ...col, tasks: backlogTasks } : col
+                col.id === "backlog" ? { ...col, tasks: backlogTasks } : col
               ),
             };
           });
@@ -125,11 +154,17 @@ export const useKanbanStore = create<KanbanState>()(
               ? {
                   ...proj,
                   columns: (() => {
-                    const fromColumn = proj.columns.find((col) => col.id === fromColumnId);
-                    const toColumn = proj.columns.find((col) => col.id === toColumnId);
+                    const fromColumn = proj.columns.find(
+                      (col) => col.id === fromColumnId
+                    );
+                    const toColumn = proj.columns.find(
+                      (col) => col.id === toColumnId
+                    );
                     if (!fromColumn || !toColumn) return proj.columns;
 
-                    const taskIndex = fromColumn.tasks.findIndex((task) => task.id === taskId);
+                    const taskIndex = fromColumn.tasks.findIndex(
+                      (task) => task.id === taskId
+                    );
                     if (taskIndex === -1) return proj.columns;
 
                     const [task] = fromColumn.tasks.splice(taskIndex, 1);
@@ -183,18 +218,18 @@ export const useKanbanStore = create<KanbanState>()(
         })),
       checkDeadlines: (projectId) =>
         set((state) => {
-          const now = new Date().toISOString().split('T')[0];
+          const now = new Date().toISOString().split("T")[0];
           return {
             projects: state.projects.map((proj) => {
               if (proj.id !== projectId) return proj;
               let backlogTasks: Task[] = [];
               proj.columns.forEach((col) => {
-                if (col.id === 'backlog') {
+                if (col.id === "backlog") {
                   backlogTasks = [...col.tasks];
                 }
               });
               const updatedColumns = proj.columns.map((col) => {
-                if (col.id === 'backlog') return col;
+                if (col.id === "backlog") return col;
                 const overdueTasks = col.tasks.filter(
                   (task) => task.deadline && task.deadline < now
                 );
@@ -207,7 +242,7 @@ export const useKanbanStore = create<KanbanState>()(
               return {
                 ...proj,
                 columns: updatedColumns.map((col) =>
-                  col.id === 'backlog' ? { ...col, tasks: backlogTasks } : col
+                  col.id === "backlog" ? { ...col, tasks: backlogTasks } : col
                 ),
               };
             }),
