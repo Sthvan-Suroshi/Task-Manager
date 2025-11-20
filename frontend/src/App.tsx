@@ -11,7 +11,8 @@ import { ProjectPage } from "./components/ProjectPage";
 import { Login } from "./components/Login";
 
 function AppContent() {
-  const { isLoggedIn, login, loadProjects, hasLoadedProjects, connectSocket } = useKanbanStore();
+  const { isLoggedIn, login, loadProjects, hasLoadedProjects, connectSocket } =
+    useKanbanStore();
   const navigate = useNavigate();
 
   useEffect(() => {

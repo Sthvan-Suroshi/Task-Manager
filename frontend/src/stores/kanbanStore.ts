@@ -42,6 +42,7 @@ interface KanbanState {
   loadProjects: () => Promise<Project[]>;
   addProject: (name: string) => Promise<void>;
   renameProject: (id: string, name: string) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
   setCurrentProject: (id: string) => void;
   getCurrentProject: () => Project | undefined;
   addTask: (
@@ -74,7 +75,7 @@ interface KanbanState {
 }
 
 const api = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`,
 });
 
 api.interceptors.request.use((config) => {
@@ -145,6 +146,17 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       }));
     } catch (error) {
       console.error("Failed to rename project", error);
+    }
+  },
+  deleteProject: async (id) => {
+    try {
+      await api.delete(`/projects/${id}`);
+      set((state) => ({
+        projects: state.projects.filter((proj) => proj._id !== id),
+        currentProjectId: state.currentProjectId === id ? null : state.currentProjectId,
+      }));
+    } catch (error) {
+      console.error("Failed to delete project", error);
     }
   },
   setCurrentProject: (id) => set({ currentProjectId: id }),
@@ -220,7 +232,7 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
     if (socket && socket.connected) return;
     const token = localStorage.getItem("token");
     if (token) {
-      const socket = io("http://localhost:3000", {
+      const socket = io(import.meta.env.VITE_API_BASE_URL, {
         auth: { token },
       });
       socket.on("cursor-update", (data) => {
@@ -275,9 +287,9 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
           projects: state.projects.filter((p) => p._id !== data.id),
         }));
       });
-      socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
-        if (error.message === 'Authentication error') {
+      socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
+        if (error.message === "Authentication error") {
           get().logout();
         }
       });
@@ -311,7 +323,12 @@ export const useKanbanStore = create<KanbanState>()((set, get) => ({
       timeout = window.setTimeout(() => {
         const { socket, userName, currentProjectId } = get();
         if (socket && currentProjectId) {
-          socket.emit("cursor-move", { projectId: currentProjectId, x, y, name: userName });
+          socket.emit("cursor-move", {
+            projectId: currentProjectId,
+            x,
+            y,
+            name: userName,
+          });
         }
         timeout = null;
       }, 50); // throttle to 20fps

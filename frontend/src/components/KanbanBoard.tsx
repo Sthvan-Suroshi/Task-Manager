@@ -8,8 +8,16 @@ import { ScrollArea } from "./ui/scroll-area";
 
 export function KanbanBoard() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { getCurrentProject, setCurrentProject, moveTask, loadProjects, sendCursor, cursors, joinProject, leaveProject } =
-    useKanbanStore();
+  const {
+    getCurrentProject,
+    setCurrentProject,
+    moveTask,
+    loadProjects,
+    sendCursor,
+    cursors,
+    joinProject,
+    leaveProject,
+  } = useKanbanStore();
   const boardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,17 +92,16 @@ export function KanbanBoard() {
           {cursors.map((cursor) => (
             <div
               key={cursor.userId}
-              className="absolute pointer-events-none"
+              className="absolute pointer-events-none mt-8"
               style={{
                 left: cursor.x,
                 top: cursor.y,
-                transform: 'translate(-50%, -50%)'
+                transform: "translate(-50%, -50%)",
               }}
             >
-              <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded">
-                {cursor.name}
+              <div className="bg-blue-500 text-white text-xs px-2 py-1 rounded border-blue-700 border-2">
+                {cursor.name || "Anonymous"}
               </div>
-              <div className="w-0 h-0 border-l-4 border-r-4 border-b-4 border-l-transparent border-r-transparent border-b-blue-500 mx-auto"></div>
             </div>
           ))}
         </div>

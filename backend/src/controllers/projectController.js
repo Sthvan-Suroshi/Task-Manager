@@ -22,9 +22,9 @@ export const createProject = async (req, res) => {
       ],
     });
     await project.save();
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('project-created', project);
+        socket.emit("project-created", project);
       }
     });
     res.status(201).json(project);
@@ -37,15 +37,13 @@ export const updateProject = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = req.body;
-    const project = await Project.findOneAndUpdate(
-      { _id: id },
-      updates,
-      { new: true }
-    );
+    const project = await Project.findOneAndUpdate({ _id: id }, updates, {
+      new: true,
+    });
     if (!project) return res.status(404).json({ message: "Project not found" });
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('project-updated', project);
+        socket.emit("project-updated", project);
       }
     });
     res.json(project);
@@ -58,9 +56,9 @@ export const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
     await Project.findOneAndDelete({ _id: id });
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('project-deleted', { id });
+        socket.emit("project-deleted", { id });
       }
     });
     res.status(200).json({ message: "Project deleted" });
@@ -84,9 +82,9 @@ export const addTask = async (req, res) => {
     const newTask = { ...task, id: Date.now().toString() };
     column.tasks.push(newTask);
     await project.save();
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('task-added', project);
+        socket.emit("task-added", project);
       }
     });
     res.json(project);
@@ -112,9 +110,9 @@ export const updateTask = async (req, res) => {
       }
     }
     await project.save();
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('task-updated', project);
+        socket.emit("task-updated", project);
       }
     });
     console.log("task updated successfully");
@@ -136,9 +134,9 @@ export const deleteTask = async (req, res) => {
       column.tasks = column.tasks.filter((task) => task.id !== taskId);
     }
     await project.save();
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('task-deleted', project);
+        socket.emit("task-deleted", project);
       }
     });
     console.log("task deleted successfully");
@@ -169,9 +167,9 @@ export const moveTask = async (req, res) => {
     const [task] = fromColumn.tasks.splice(taskIndex, 1);
     toColumn.tasks.push(task);
     await project.save();
-    global.io.sockets.sockets.forEach(socket => {
+    global.io.sockets.sockets.forEach((socket) => {
       if (socket.userId !== req.user.userId) {
-        socket.emit('task-moved', project);
+        socket.emit("task-moved", project);
       }
     });
     res.status(200).json(project);

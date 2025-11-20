@@ -20,22 +20,42 @@ import {
   DialogTrigger,
 } from "./ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { Plus, Folder, Edit, MoreVertical } from "lucide-react";
+import { Plus, Folder, Edit, MoreVertical, Trash2 } from "lucide-react";
+import axios from "axios";
 
 export function ProjectSidebar() {
-  const { projects, addProject, renameProject, setCurrentProject, logout } =
-    useKanbanStore();
+  const {
+    projects,
+    addProject,
+    renameProject,
+    deleteProject,
+    setCurrentProject,
+    logout,
+  } = useKanbanStore();
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [deletingProjectId, setDeletingProjectId] = useState<string | null>(
+    null
+  );
 
   const handleAddProject = async () => {
     if (newProjectName.trim()) {
@@ -63,14 +83,19 @@ export function ProjectSidebar() {
     setEditingName("");
   };
 
+  const handleDeleteProject = async () => {
+    if (deletingProjectId) {
+      await deleteProject(deletingProjectId);
+      setDeletingProjectId(null);
+      if (projectId === deletingProjectId) {
+        navigate("/projects");
+      }
+    }
+  };
+
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:3000/api/auth/logout", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
-        },
-      });
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/auth/logout`);
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -129,6 +154,13 @@ export function ProjectSidebar() {
                       <Edit className="h-4 w-4 mr-2" />
                       Rename
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => setDeletingProjectId(project._id)}
+                      className="text-red-600 hover:text-red-700"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -136,7 +168,7 @@ export function ProjectSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <SidebarFooter className="space-y-2">
+      <SidebarFooter className="space-y-1 mb-4">
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full">
@@ -160,7 +192,34 @@ export function ProjectSidebar() {
             </div>
           </DialogContent>
         </Dialog>
-        <Button variant="outline" onClick={handleLogout} className="w-full">
+        <AlertDialog
+          open={!!deletingProjectId}
+          onOpenChange={() => setDeletingProjectId(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this project? This action cannot
+                be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteProject}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          className="w-full hover:bg-rose-100"
+        >
           Logout
         </Button>
       </SidebarFooter>

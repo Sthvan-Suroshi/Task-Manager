@@ -14,9 +14,8 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
+    origin: ["http://localhost:5173", "https://kanban.sthvansuroshi.online"],
+  },
 });
 global.io = io;
 const port = process.env.PORT || 3000;
@@ -45,31 +44,30 @@ io.use((socket, next) => {
 });
 
 // Socket.io connection
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.userId);
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.userId);
 
-  socket.on('join-project', (projectId) => {
+  socket.on("join-project", (projectId) => {
     socket.join(projectId);
     console.log(`User ${socket.userId} joined project ${projectId}`);
   });
 
-  socket.on('leave-project', (projectId) => {
+  socket.on("leave-project", (projectId) => {
     socket.leave(projectId);
     console.log(`User ${socket.userId} left project ${projectId}`);
   });
 
-  socket.on('cursor-move', (data) => {
-    // Broadcast to others in the project
-    socket.to(data.projectId).emit('cursor-update', {
+  socket.on("cursor-move", (data) => {
+    socket.to(data.projectId).emit("cursor-update", {
       userId: socket.userId,
       x: data.x,
       y: data.y,
-      name: data.name
+      name: data.name,
     });
   });
 
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.userId);
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.userId);
   });
 });
 
