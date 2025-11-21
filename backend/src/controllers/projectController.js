@@ -3,7 +3,7 @@ import Project from "../models/Project.js";
 export const getProjects = async (req, res) => {
   try {
     const projects = await Project.find();
-    res.json(projects);
+    res.status(200).json(projects);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -46,7 +46,7 @@ export const updateProject = async (req, res) => {
         socket.emit("project-updated", project);
       }
     });
-    res.json(project);
+    res.status(200).json(project);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -87,7 +87,7 @@ export const addTask = async (req, res) => {
         socket.emit("task-added", project);
       }
     });
-    res.json(project);
+    res.status(200).json(project);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

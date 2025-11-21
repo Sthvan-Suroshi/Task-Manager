@@ -28,7 +28,7 @@ export const login = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({
+    res.status(200).json({
       token,
       user: { id: user._id, email: user.email, name: user.name },
     });
@@ -38,5 +38,5 @@ export const login = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  res.json({ message: "Logged out successfully" });
+  res.status(200).json({ message: "Logged out successfully" });
 };
